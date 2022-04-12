@@ -33,23 +33,23 @@ public class PostController {
 //    Create a post
     @PostMapping(value = "/{id}", consumes = "multipart/form-data")
     public ResponseEntity createPost(
-                            @PathVariable Long id,
+                            @PathVariable Long id, // change this to include some validation so attackers cant create posts for another user
                             @RequestParam MultipartFile file) throws IOException {
         User u = userService.findById(id); // get the user for the post owner
         if(u != null ) { // if the user exists
-            log.info("Creating post from: " +u.toString());
+            log.info("Creating post from: " +u.getDisplayName());
             Post newPost = new Post(); // empty post
             newPost.setCreator(u);
-            if (!file.isEmpty()) { // AND if a file was sumbitted
-                String fileName = fileStorageService.saveFile(file, "posts/" + u.getId());
-                String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                        .path("/files/posts/"+ u.getId() + "/")
+            if (!file.isEmpty()) { // if a file was sumbitted
+                String fileName = fileStorageService.saveFile(file, "posts/" + u.getId()); // save file to C:/uploads/posts/{user_id}/fileName
+                String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath() // create url to access file
+                        .path("/files/posts/"+ u.getId() + "/") // localhost:8080/api/files/posts/{user_id}/filename
                         .path(fileName)
                         .toUriString();
-                newPost.setImage(fileDownloadUri);
+                newPost.setImage(fileDownloadUri); // set Post varchar() image field to this url
             }
             Post savedPost = postDAO.save(newPost);
-            return new ResponseEntity<Post>(savedPost,HttpStatus.OK);
+            return new ResponseEntity<Post>(savedPost,HttpStatus.OK); // return saved post
         } // if there is no creator_id dont save, return null.
         else {
             return new ResponseEntity(HttpStatus.BAD_REQUEST);
@@ -60,8 +60,8 @@ public class PostController {
         List<Post> postList = postDAO.findAll();
         return postList;
     }
-    @GetMapping(value="/getPostsForCreator/{id}")
-    public List<Post> getPostsByCreator(@PathVariable Long id){
+    @GetMapping(value="/getPostsForCreator/{id}") // later add validation to check if user profile is private
+    public List<Post> getPostsByCreator(@PathVariable Long id){ // when viewing user profile page
         return postService.findPostsForCreator(id);
     }
 
