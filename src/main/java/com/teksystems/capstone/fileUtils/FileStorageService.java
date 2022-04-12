@@ -54,8 +54,8 @@ public class FileStorageService {
 
     public Resource loadFileAsResource(String filename, String subDir){
         try {
-            Path filepath =this.fileStorageLocation.resolve(subDir).resolve(filename).normalize();
-            Resource resource = new UrlResource(filepath.toUri());
+            Path filepath =this.fileStorageLocation.resolve(subDir).resolve(filename).normalize(); // subdir could be posts/{user_id} or users/{user_id}
+            Resource resource = new UrlResource(filepath.toUri()); // get uri for image host
             if(resource != null){
                 return resource;
             } else {
