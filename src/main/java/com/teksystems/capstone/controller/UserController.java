@@ -76,12 +76,12 @@ public class UserController {
         // and return null if it DOES exist
         userValidator.validate(u, result);
         if(result.hasErrors()){
-            Map<String, String> errors = new HashMap<>();
+            Map<String, String> errors = new HashMap<>(); // trying to create Field: ErrorMsg json response to send backend validations to React
 //                    result.getAllErrors().stream()
 //                    .map(DefaultMessageSourceResolvable::getDefaultMessage)
 //                    .collect(Collectors.toList());
             log.info(result.getFieldErrors().stream().spliterator().toString());
-            return new ResponseEntity<>(errors, HttpStatus.OK);
+            return new ResponseEntity<>(errors, HttpStatus.OK); 
 
             }
         else {
@@ -97,9 +97,6 @@ public class UserController {
         boolean isValid = userService.validateLogin(loginForm);
         if(isValid){
             User u = userService.findByEmail(loginForm.getEmail());
-            if(u.getId() == 1){
-
-            }
             return new ResponseEntity<User>(u, HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
@@ -108,23 +105,22 @@ public class UserController {
     @PostMapping(value = "/update", consumes = "multipart/form-data")
     public ResponseEntity updateUser(
             @RequestParam Long id,
-            @RequestParam(required = false) String email,
-            @RequestParam(required = false) String displayName,
+//            @RequestParam(required = false) String email,
+//            @RequestParam(required = false) String displayName,
             @RequestParam(value = "pfp", required = false)MultipartFile multipartFile) throws IOException {
 
             User u = userService.findById(id); // get user from id parameter in request
-            log.info(u.toString());
             if(u != null ){
                 if(!multipartFile.isEmpty()){ // if a file was sumbitted
-                    String fileName = fileStorageService.saveFile(multipartFile, "users/" + u.getId());
-                    String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                            .path("/files/users/"+ u.getId() + "/")
+                    String fileName = fileStorageService.saveFile(multipartFile, "users/" + u.getId()); // saveFile(file, subdirectory = "users/{id}")
+                    String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath() // building Uri to serve the file out of filesystem
+                            .path("/files/users/"+ u.getId() + "/") // full route = http://localhost:8080/api/files/users/{id}/filename
                             .path(fileName)
                             .toUriString();
-                    u.setPfp(fileDownloadUri);
+                    u.setPfp(fileDownloadUri); // setting users PFP varchar field to the uri
                 }
-                User savedUser = userService.updateUser(u);
-                return new ResponseEntity<User>(savedUser, HttpStatus.OK);
+                User savedUser = userService.updateUser(u); // updating user with DAO.save(u)
+                return new ResponseEntity<User>(savedUser, HttpStatus.OK); // return newly updated user
             }
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
     }
@@ -133,25 +129,25 @@ public class UserController {
     public ResponseEntity addVehicle(@RequestParam Long user_id, @RequestParam Integer year, @RequestParam String make, @RequestParam String model){
         User u = userService.findById(user_id);
         if(u != null) {
-            List<Vehicle> vehicleList = vehicleDAO.findVehiclesByMakeAndModelAndYear(make, model, year);
+            List<Vehicle> vehicleList = vehicleDAO.findVehiclesByMakeAndModelAndYear(make, model, year); 
             List<Vehicle> userGarage = u.getVehicles();
-            if (vehicleList.isEmpty()) {
+            if (vehicleList.isEmpty()) { // if vehicle is not in the DB already
                 Vehicle v = new Vehicle();
                 v.setMake(make);
                 v.setModel(model);
                 v.setYear(year);
-                vehicleDAO.save(v);
-                userGarage.add(v);
-                u.setVehicles(userGarage);
-                User savedUser = userService.updateUser(u);
+                vehicleDAO.save(v); // create and save to DB
+                userGarage.add(v); 
+                u.setVehicles(userGarage); // add vehicle to users_vehicles table
+                User savedUser = userService.updateUser(u); 
                 return new ResponseEntity<User>(savedUser, HttpStatus.OK);
-            } else {
-                Vehicle v = vehicleList.get(0);
-                v.setVIN(null);
-                userGarage.add(v);
+            } else { // if vehicle is in DB
+                Vehicle v = vehicleList.get(0); // get it 
+                v.setVIN(null); // set VIN field to null
+                userGarage.add(v); // add it to users_vehicles table
                 u.setVehicles(userGarage);
-                User savedUser = userService.updateUser(u);
-                return new ResponseEntity<User>(savedUser, HttpStatus.OK);
+                User savedUser = userService.updateUser(u); 
+                return new ResponseEntity<User>(savedUser, HttpStatus.OK); // return updated user
             }
         }
         else return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
