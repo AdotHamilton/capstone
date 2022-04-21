@@ -1,0 +1,3 @@
+[submodule "myGarage"]
+	path = myGarage
+	url = https://github.com/AdotHamilton/myGarage.git
