@@ -1,8 +1,10 @@
 package com.teksystems.capstone.database.service;
 
 import com.teksystems.capstone.database.dao.UserDAO;
+import com.teksystems.capstone.database.dao.UserFollowingDAO;
 import com.teksystems.capstone.entity.LoginForm;
 import com.teksystems.capstone.entity.User;
+import com.teksystems.capstone.entity.UserFollowing;
 import com.teksystems.capstone.validator.UserValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +20,8 @@ public class UserService {
     private UserDAO userDAO;
     @Autowired
     private UserValidator userValidator;
-
+    @Autowired
+    private UserFollowingDAO userFollowingDAO;
     // find user methods
     public List<User> findAllUsers(){
         return userDAO.findAll();
@@ -38,7 +41,14 @@ public class UserService {
     public List<User> searchUsersByDisplayName(String search){
         return userDAO.findUsersByDisplayNameContaining(search).subList(0, 10);
     }
-
+    public List<UserFollowing> findFollowedUsers(Long user_id){
+        User u = userDAO.findUserById(user_id);
+        if(u != null){
+            return userFollowingDAO.findByFollowingUser_Id(user_id);
+        } else {
+            return null;
+        }
+    }
 
     public User registerUser(User u){
         if(findByEmail(u.getEmail()) == null){

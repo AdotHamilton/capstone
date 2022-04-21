@@ -1,12 +1,17 @@
 package com.teksystems.capstone.controller;
 
+import com.teksystems.capstone.database.dao.UserRoleDAO;
 import com.teksystems.capstone.database.dao.VehicleDAO;
+import com.teksystems.capstone.entity.UserRole;
 import com.teksystems.capstone.fileUtils.FileStorageService;
 import com.teksystems.capstone.database.service.UserService;
 import com.teksystems.capstone.entity.LoginForm;
 import com.teksystems.capstone.entity.User;
 import com.teksystems.capstone.entity.Vehicle;
 // Modules imports
+import com.teksystems.capstone.formbean.AddVehicleFormBean;
+import com.teksystems.capstone.formbean.EventFormBean;
+import com.teksystems.capstone.formbean.RegisterFormBean;
 import com.teksystems.capstone.validator.UserValidator;
 import lombok.extern.slf4j.Slf4j;
 // logging
@@ -16,15 +21,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.DateFormat;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -37,6 +42,8 @@ public class UserController {
     private UserService userService;
     @Autowired
     private UserValidator userValidator;
+    @Autowired
+    private UserRoleDAO userRoleDAO;
     @Autowired
     private VehicleDAO vehicleDAO;
     @Autowired
@@ -67,62 +74,111 @@ public class UserController {
     public User findByDisplayName(@PathVariable String displayName){
         return userService.findUserByDisplayName(displayName);
     }
+    @GetMapping("/testUserRoleById")
+    public List<Map<String, Object>> getUserAndRoleById(@RequestParam Long id){
+        return userRoleDAO.findUserRoleById(id);
+    }
 
 
     @PostMapping("/register")
-    public ResponseEntity<Object> registerUser(@Valid @RequestBody User u, BindingResult result){
-        log.info(u.toString());
-        // user service will check if the email already exists
-        // and return null if it DOES exist
-        userValidator.validate(u, result);
+    public ResponseEntity<Object> registerUser(@Valid @RequestBody RegisterFormBean form, BindingResult result){
+        User tempUser = new User();
+        if(form.getIsBusiness()){
+            log.info("Business");
+        } else {log.info("User");}
+        tempUser.setEmail(form.getEmail());
+        tempUser.setPassword(form.getPassword());
+        tempUser.setConfirmPw(form.getConfirmPw());
+        tempUser.setDisplayName(form.getDisplayName());
+        tempUser.setState(form.getState());
+        tempUser.setZipCode(form.getZipCode());
+        if(form.getIsBusiness()){
+            tempUser.setBusinessAddress(form.getBusinessAddress());
+        }
+        userValidator.validate(tempUser, result);
         if(result.hasErrors()){
-            Map<String, String> errors = new HashMap<>();
-//                    result.getAllErrors().stream()
-//                    .map(DefaultMessageSourceResolvable::getDefaultMessage)
-//                    .collect(Collectors.toList());
-            log.info(result.getFieldErrors().stream().spliterator().toString());
-            return new ResponseEntity<>(errors, HttpStatus.OK);
-
+            Map<String, String> errors = new HashMap<>(); // create key/value for form fields and error messages
+            for(FieldError error : result.getFieldErrors()){
+                errors.put(error.getField(), error.getDefaultMessage());
             }
+            return new ResponseEntity<>(errors, HttpStatus.OK); // return as JSON
+            // this logic maps my errors to their respective fields in the frontend
+        }
         else {
             log.info("No Errors");
-            User savedUser = userService.registerUser(u);
-            return new ResponseEntity<>(savedUser, HttpStatus.OK);
-
+            User savedUser = userService.registerUser(tempUser); // returns null if email exists
+            if(savedUser != null){ // if user email is unique
+                UserRole userRole = new UserRole();
+                if(form.getIsBusiness()){
+                    userRole.setUserRole("BUSINESS");
+                } else {
+                    userRole.setUserRole("USER");
+                }
+                userRole.setUserId(savedUser.getId());
+                userRoleDAO.save(userRole);
+                return new ResponseEntity<>(savedUser, HttpStatus.OK);
+            } else {
+                Map<String, String> errors = new HashMap<>();
+                errors.put("email", "This account already exists");
+                return new ResponseEntity<>(errors, HttpStatus.OK);
+            }
         }
 
     }
+
     @PostMapping("/login")
     public ResponseEntity login(@RequestBody LoginForm loginForm){
         boolean isValid = userService.validateLogin(loginForm);
         if(isValid){
             User u = userService.findByEmail(loginForm.getEmail());
-            if(u.getId() == 1){
-
-            }
             return new ResponseEntity<User>(u, HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
     }
-    @PostMapping(value = "/update", consumes = "multipart/form-data")
-    public ResponseEntity updateUser(
-            @RequestParam Long id,
-            @RequestParam(required = false) String email,
-            @RequestParam(required = false) String displayName,
-            @RequestParam(value = "pfp", required = false)MultipartFile multipartFile) throws IOException {
 
-            User u = userService.findById(id); // get user from id parameter in request
+    @PostMapping(value="/updatePfp", consumes = "multipart/form-data")
+    public ResponseEntity updatePfp(@RequestParam Long user_id,
+                                    @RequestParam String pwHash,
+                                    @RequestParam(value = "pfp")MultipartFile multipartFile) throws IOException {
+
+        User u = userService.findById(user_id);
+        if(u != null && u.getPassword().equals(pwHash)){ // if DB password hash is the same as requestParam
+            if(!multipartFile.isEmpty()){ // if a file was sumbitted
+                Date uploadDate = new Date();
+                String uriBuilder = u.getId() + "/" + uploadDate.toString() + "/";
+
+                String fileName = fileStorageService.saveFile(multipartFile, "users/" + u.getId());
+                String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+                        .path("/files/users/" + uriBuilder)
+                        .path(fileName)
+                        .toUriString();
+                log.info("length: " +fileDownloadUri.length());
+                u.setPfp(fileDownloadUri);
+            }
+            User saved = userService.updateUser(u);
+            return new ResponseEntity(saved, HttpStatus.OK);
+        } else {
+            return new ResponseEntity(HttpStatus.NOT_FOUND);
+        }
+    }
+
+//    @RequestParam(required = false) String email,
+//    @RequestParam(required = false) String displayName,
+
+
+
+
+    @PostMapping(value = "/update", consumes = "application/json")
+    public ResponseEntity updateUser(@RequestBody User request) throws IOException {
+            log.info(request.toString());
+            User u = userService.findById(request.getId()); // get user from id parameter in request
             log.info(u.toString());
             if(u != null ){
-                if(!multipartFile.isEmpty()){ // if a file was sumbitted
-                    String fileName = fileStorageService.saveFile(multipartFile, "users/" + u.getId());
-                    String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                            .path("/files/users/"+ u.getId() + "/")
-                            .path(fileName)
-                            .toUriString();
-                    u.setPfp(fileDownloadUri);
-                }
+
+//                if(!email.isEmpty()){
+//                    u.setEmail(email);
+//                }
                 User savedUser = userService.updateUser(u);
                 return new ResponseEntity<User>(savedUser, HttpStatus.OK);
             }
@@ -130,8 +186,13 @@ public class UserController {
     }
 
     @PostMapping(value="/garage/add")
-    public ResponseEntity addVehicle(@RequestParam Long user_id, @RequestParam Integer year, @RequestParam String make, @RequestParam String model){
-        User u = userService.findById(user_id);
+    public ResponseEntity addVehicle(@RequestBody AddVehicleFormBean form){
+        log.info(form.toString());
+        User u = userService.findById(form.getUser_id());
+        String make = form.getMake();
+        String model = form.getModel();
+        int year = form.getYear();
+
         if(u != null) {
             List<Vehicle> vehicleList = vehicleDAO.findVehiclesByMakeAndModelAndYear(make, model, year);
             List<Vehicle> userGarage = u.getVehicles();
@@ -140,8 +201,8 @@ public class UserController {
                 v.setMake(make);
                 v.setModel(model);
                 v.setYear(year);
-                vehicleDAO.save(v);
-                userGarage.add(v);
+                Vehicle savedVehicle = vehicleDAO.save(v);
+                userGarage.add(savedVehicle);
                 u.setVehicles(userGarage);
                 User savedUser = userService.updateUser(u);
                 return new ResponseEntity<User>(savedUser, HttpStatus.OK);
@@ -155,17 +216,7 @@ public class UserController {
             }
         }
         else return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-
     }
-
-
-
-
-
-
-
-
-
 
     //    @RequestMapping(value="/getByDisplayName/{dName}", method = RequestMethod.GET)
 //    public ModelAndView index(@PathVariable String dName) {

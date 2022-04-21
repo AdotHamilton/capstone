@@ -23,7 +23,7 @@ public class FileController {
     @Autowired
     private FileStorageService fileStorageService;
 
-    @GetMapping("/users/{id}/{filename:.+}")
+    @GetMapping("/users/{id}/{date}/{filename:.+}")
     public ResponseEntity<Resource> downloadFile(@PathVariable String filename, @PathVariable Long id, HttpServletRequest request){
         Resource resource = fileStorageService.loadFileAsResource(filename, "users/" + id);
 
@@ -60,4 +60,22 @@ public class FileController {
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(contentType)).body(resource);
     }
 
+    @GetMapping("/events/{id}/{filename:.+}")
+    public ResponseEntity<Resource> getEventImage(@PathVariable String filename, @PathVariable Long id, HttpServletRequest request){
+        Resource resource = fileStorageService.loadFileAsResource(filename, "events/" + id);
+
+        String contentType = null;
+
+        try {
+            contentType = request.getServletContext().getMimeType(resource.getFile().getAbsolutePath());
+        } catch (IOException e) {
+            log.info("Couldnt determine filetype");
+        }
+
+        if(contentType == null){
+            contentType = "application/octet-stream";
+        }
+
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(contentType)).body(resource);
+    }
 }

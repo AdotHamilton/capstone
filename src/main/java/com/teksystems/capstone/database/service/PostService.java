@@ -22,7 +22,7 @@ public class PostService {
     public List<Post> findPostsForCreator(Long id){
         User u = userDAO.findUserById(id);
         if(u != null){
-            return postDAO.findPostByCreator(u);
+            return postDAO.findPostByCreatorOrderByDateDesc(u);
         } else {
             return null;
         }
