@@ -7,12 +7,11 @@ myGarage is made by enthusiasts, for enthusiasts.
 ![GitHub](https://img.shields.io/github/license/AdotHamilton/capstone?style=flat-square) **Version 1.0.0**
 
 ## Demo: 
-------------------------------------------------
+
 
 ![ProjectDemo](https://user-images.githubusercontent.com/76780774/165186819-cbac6659-8803-4bfc-930e-aeb042464781.gif)
 
-### Codebase:
-------------------------------------------------
+## Codebase:
 ### Front End: React
 The client view of myGarage is powered by React.JS
  - utilizes the **Axios** node module to request page data from the backend. 
