@@ -4,7 +4,9 @@
 myGarage is made by enthusiasts, for enthusiasts.
 
 
-![GitHub](https://img.shields.io/github/license/AdotHamilton/capstone?style=flat-square) **Version 1.0.0**
+![GitHub](https://img.shields.io/github/license/AdotHamilton/capstone?style=flat-square)
+
+**Version 1.0.0**
 
 ## Demo: 
 
