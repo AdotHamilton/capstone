@@ -27,7 +27,7 @@ Features:
  - Apache **Tomcat** Web Servlet
  - Spring Data **JPA** and Hibernate for database queries
  - Paginated Requests with JPARepository
- - Controllers are annotated by **@RestController*
+ - Controllers are annotated by **@RestController**
  - Responses are handled with **ResponseEntity**
  - Custom file upload utility
 
